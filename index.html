@@ -1267,7 +1267,7 @@
       markerGroup.clearLayers();
       trailPoints.forEach((p, idx) => {
         const marker = L.marker(p.latlng, { title: p.name });
-        marker.bindPopup(`<b>${p.name}</b><br>${p.latlng[0].toFixed(5)}, ${p.latlng[1].toFixed(5)}`);
+        marker.bindPopup(`<b>${p.name}</b><br>${p.latlng[0].toFixed(6)}, ${p.latlng[1].toFixed(6)}`);
         marker.addTo(markerGroup);
         if (idx === 0) marker.openPopup();
       });
