@@ -1,0 +1,1410 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Mt. Masapinit • Toong, Tuy, Batangas</title>
+  <meta name="description" content="Minimalist nature website for Mt. Masapinit (Toong, Tuy, Batangas) with trail map, safety protocols, and join form."/>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    :root {
+      --bg0: #050807;
+      --bg1: #090e0b;
+      --card: rgba(255,255,255,.055);
+      --text: rgba(255,255,255,.90);
+      --muted: rgba(255,255,255,.55);
+      --line: rgba(255,255,255,.09);
+      --accent: #9de3b4;
+      --accent-dim: rgba(157,227,180,.15);
+      --accent2: #b3d9f5;
+      --warm: #e8d5b0;
+      --shadow-lg: 0 32px 80px rgba(0,0,0,.55);
+      --shadow-sm: 0 4px 24px rgba(0,0,0,.28);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 10px;
+      --font-display: 'Cormorant Garamond', Georgia, serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'DM Mono', 'Fira Code', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg0);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      font-weight: 300;
+      letter-spacing: .15px;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NOISE TEXTURE OVERLAY ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      background-size: 200px;
+      pointer-events: none;
+      z-index: 999;
+      opacity: .6;
+    }
+
+    /* ── AMBIENT GLOW ── */
+    .ambient {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 50%;
+      filter: blur(100px);
+    }
+    .ambient-1 {
+      width: 700px; height: 500px;
+      background: radial-gradient(circle, rgba(157,227,180,.12) 0%, transparent 70%);
+      top: -200px; left: -100px;
+    }
+    .ambient-2 {
+      width: 600px; height: 500px;
+      background: radial-gradient(circle, rgba(179,217,245,.09) 0%, transparent 70%);
+      top: 100px; right: -150px;
+    }
+    .ambient-3 {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(157,227,180,.07) 0%, transparent 70%);
+      bottom: 20%; left: 30%;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── GLASS ── */
+    .glass {
+      background: rgba(255,255,255,.038);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .glass-inner {
+      background: rgba(255,255,255,.028);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: var(--radius-md);
+    }
+
+    .muted { color: var(--muted); }
+    .accent { color: var(--accent); }
+
+    .tag {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 999px;
+      padding: .3rem .7rem;
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 400;
+      letter-spacing: .3px;
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      transition: border-color .2s, background .2s;
+    }
+    .tag:hover {
+      border-color: rgba(157,227,180,.3);
+      background: rgba(157,227,180,.06);
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-size: .82em;
+      padding: .14rem .4rem;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color: rgba(255,255,255,.65);
+    }
+
+    /* ── NAVBAR ── */
+    .nav-glass {
+      background: rgba(5,8,7,.72);
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .navbar-brand {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: .5px;
+      color: rgba(255,255,255,.90) !important;
+    }
+    .navbar-brand span { color: var(--accent); }
+    .navbar .nav-link {
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 400;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      border-radius: var(--radius-sm);
+      padding: .42rem .8rem;
+      transition: color .2s, background .2s;
+    }
+    .navbar .nav-link:hover {
+      color: rgba(255,255,255,.88);
+      background: rgba(255,255,255,.05);
+      text-decoration: none;
+    }
+    .navbar .nav-link.active {
+      color: var(--accent);
+      background: rgba(157,227,180,.08);
+      border: 1px solid rgba(157,227,180,.18);
+    }
+
+    /* ── BUTTONS ── */
+    .btn-primary-soft {
+      background: rgba(157,227,180,.14);
+      border: 1px solid rgba(157,227,180,.28);
+      color: var(--text);
+      border-radius: var(--radius-md);
+      padding: .7rem 1.3rem;
+      font-size: .85rem;
+      font-weight: 400;
+      letter-spacing: .4px;
+      transition: background .25s, border-color .25s, transform .15s;
+    }
+    .btn-primary-soft:hover {
+      background: rgba(157,227,180,.22);
+      border-color: rgba(157,227,180,.45);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--muted);
+      border-radius: var(--radius-md);
+      padding: .7rem 1.3rem;
+      font-size: .85rem;
+      font-weight: 400;
+      letter-spacing: .4px;
+      transition: border-color .25s, color .25s, transform .15s;
+    }
+    .btn-ghost:hover {
+      border-color: rgba(255,255,255,.28);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+    .btn-sm-soft {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      color: var(--muted);
+      border-radius: var(--radius-sm);
+      padding: .38rem .8rem;
+      font-size: .8rem;
+      transition: background .2s, border-color .2s, color .2s;
+    }
+    .btn-sm-soft:hover {
+      background: rgba(255,255,255,.09);
+      border-color: rgba(255,255,255,.2);
+      color: var(--text);
+    }
+
+    /* ── SECTION ── */
+    section { scroll-margin-top: 90px; }
+    .section-pad { padding: 1.4rem 0; }
+    .section-label {
+      font-size: .72rem;
+      font-weight: 400;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: .5rem;
+    }
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: -.2px;
+      line-height: 1.1;
+      color: rgba(255,255,255,.92);
+    }
+    .section-title-sm {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: -.1px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 6rem 0 2rem;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+    .hero-eyebrow {
+      font-size: .72rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1rem;
+    }
+    .hero-title {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 6vw, 5.2rem);
+      font-weight: 300;
+      line-height: 1.0;
+      letter-spacing: -1px;
+      color: rgba(255,255,255,.92);
+    }
+    .hero-title em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .hero-subtitle {
+      font-size: .9rem;
+      line-height: 1.8;
+      color: var(--muted);
+      max-width: 42ch;
+      margin-top: 1.2rem;
+    }
+
+    /* ── CINEMATIC CAROUSEL ── */
+    .cinema-wrap {
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: #000;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .cinema-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.65) 0%, transparent 40%),
+                  linear-gradient(to bottom, rgba(0,0,0,.3) 0%, transparent 30%);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .cinema-slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 1.4s cubic-bezier(.4,0,.2,1);
+      z-index: 1;
+    }
+    .cinema-slide.active {
+      opacity: 1;
+      z-index: 2;
+    }
+    .cinema-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transform: scale(1.04);
+      transition: transform 6s ease;
+      filter: saturate(0.85) contrast(1.05);
+    }
+    .cinema-slide.active img {
+      transform: scale(1.0);
+    }
+    .cinema-aspect {
+      padding-bottom: 62%;
+      position: relative;
+    }
+    .cinema-caption {
+      position: absolute;
+      bottom: 1.4rem;
+      left: 1.4rem;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    .cinema-caption-label {
+      font-size: .78rem;
+      letter-spacing: 1.5px;
+      color: rgba(255,255,255,.75);
+      text-transform: uppercase;
+    }
+    .cinema-dots {
+      position: absolute;
+      bottom: 1.4rem;
+      right: 1.4rem;
+      z-index: 3;
+      display: flex;
+      gap: .45rem;
+    }
+    .cinema-dot {
+      width: 28px;
+      height: 2px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.28);
+      cursor: pointer;
+      transition: background .3s, width .3s;
+      border: none;
+      padding: 0;
+    }
+    .cinema-dot.active {
+      background: rgba(157,227,180,.8);
+      width: 40px;
+    }
+    .cinema-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 4;
+      background: rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.75);
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+      font-size: 1rem;
+      backdrop-filter: blur(8px);
+    }
+    .cinema-nav:hover {
+      background: rgba(0,0,0,.6);
+      border-color: rgba(255,255,255,.28);
+    }
+    .cinema-nav.prev { left: 1rem; }
+    .cinema-nav.next { right: 1rem; }
+
+    /* ── GALLERY CAROUSEL (crossfade) ── */
+    .gallery-carousel {
+      position: relative;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: var(--shadow-lg);
+    }
+    .gallery-aspect {
+      padding-bottom: 56%;
+      position: relative;
+      background: #000;
+    }
+    .g-slide {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+      z-index: 1;
+    }
+    .g-slide.active {
+      opacity: 1;
+      z-index: 2;
+    }
+    .g-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(.9);
+      transition: transform 8s ease;
+      transform: scale(1.05);
+    }
+    .g-slide.active img {
+      transform: scale(1.0);
+    }
+    .gallery-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 45%);
+      z-index: 3;
+      pointer-events: none;
+    }
+    .gallery-controls {
+      position: absolute;
+      bottom: 1.2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 4;
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+    }
+    .g-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.3);
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      transition: background .3s, transform .3s;
+    }
+    .g-dot.active {
+      background: var(--accent);
+      transform: scale(1.4);
+    }
+    .g-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 4;
+      background: rgba(0,0,0,.3);
+      border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.7);
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: background .2s;
+      backdrop-filter: blur(6px);
+      font-size: .95rem;
+    }
+    .g-nav:hover { background: rgba(0,0,0,.55); color: #fff; }
+    .g-nav.prev { left: .9rem; }
+    .g-nav.next { right: .9rem; }
+
+    /* ── STATS STRIP ── */
+    .stat-box {
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.2rem;
+      background: rgba(255,255,255,.025);
+      transition: border-color .3s, background .3s;
+    }
+    .stat-box:hover {
+      border-color: rgba(157,227,180,.2);
+      background: rgba(157,227,180,.04);
+    }
+    .stat-val {
+      font-family: var(--font-display);
+      font-size: 1.55rem;
+      font-weight: 600;
+      color: rgba(255,255,255,.88);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: .75rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: .3rem;
+    }
+
+    /* ── SOFT BOX ── */
+    .soft-box {
+      border: 1px solid rgba(255,255,255,.07);
+      background: rgba(255,255,255,.025);
+      border-radius: var(--radius-md);
+    }
+    .accent-box {
+      border: 1px solid rgba(157,227,180,.18);
+      background: rgba(157,227,180,.06);
+      border-radius: var(--radius-md);
+    }
+
+    /* ── MAP ── */
+    #map {
+      height: 440px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255,255,255,.1);
+      overflow: hidden;
+    }
+    .leaflet-control-zoom a {
+      background: rgba(0,0,0,.6) !important;
+      color: #fff !important;
+      border: 1px solid rgba(255,255,255,.15) !important;
+    }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background: rgba(5,8,7,.9);
+      color: rgba(255,255,255,.85);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      font-family: var(--font-body);
+      font-size: .84rem;
+    }
+
+    /* ── FORM ── */
+    .form-control, .form-select {
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.1);
+      color: rgba(255,255,255,.88);
+      border-radius: var(--radius-sm);
+      padding: .68rem .9rem;
+      font-family: var(--font-body);
+      font-size: .88rem;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .form-control:focus, .form-select:focus {
+      border-color: rgba(157,227,180,.4);
+      box-shadow: 0 0 0 3px rgba(157,227,180,.08);
+      background: rgba(0,0,0,.28);
+      color: rgba(255,255,255,.9);
+    }
+    .form-control::placeholder { color: rgba(255,255,255,.3); }
+    .form-label {
+      font-size: .78rem;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+    .form-select option { background: #0d1410; }
+
+    /* ── HONEYPOT ── */
+    .hp-field {
+      position: absolute !important;
+      left: -9999px !important;
+      width: 1px !important;
+      height: 1px !important;
+      overflow: hidden !important;
+    }
+
+    /* ── LIST ── */
+    .list-clean { list-style: none; padding: 0; margin: 0; }
+    .list-clean li { 
+      padding: .55rem 0; 
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: .88rem;
+    }
+    .list-clean li:last-child { border-bottom: none; padding-bottom: 0; }
+
+    .list-num { padding: 0 0 0 1.1rem; margin: 0; }
+    .list-num li {
+      padding: .55rem 0;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      color: var(--muted);
+      font-size: .88rem;
+    }
+    .list-num li:last-child { border-bottom: none; }
+    .list-num li::marker { color: var(--accent); font-size: .8rem; }
+
+    /* ── REVEAL ANIMATION ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity .8s cubic-bezier(.4,0,.2,1), transform .8s cubic-bezier(.4,0,.2,1);
+    }
+    .reveal.show { opacity: 1; transform: none; }
+    .reveal.delay-1 { transition-delay: .1s; }
+    .reveal.delay-2 { transition-delay: .2s; }
+    .reveal.delay-3 { transition-delay: .3s; }
+
+    /* ── DIVIDER ── */
+    .divider { border-color: rgba(255,255,255,.07); }
+
+    /* ── WS ── */
+    #wsLog {
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      color: var(--muted);
+      max-height: 180px;
+      overflow: auto;
+      line-height: 1.7;
+    }
+    #wsStatus {
+      font-family: var(--font-mono);
+      font-size: .8rem;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid rgba(255,255,255,.07);
+      padding: 2.5rem 0;
+      margin-top: 2rem;
+      color: var(--muted);
+      font-size: .82rem;
+      letter-spacing: .3px;
+      position: relative;
+      z-index: 1;
+    }
+    .footer-brand {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      color: rgba(255,255,255,.5);
+    }
+
+    /* ── SCROLL BAR ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.2); }
+
+    /* ── PROGRESS LINE ── */
+    .progress-line {
+      position: fixed;
+      top: 0; left: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      z-index: 9999;
+      transition: width .1s linear;
+      width: 0%;
+    }
+
+    @media (max-width: 991px) {
+      .hero { padding-top: 5rem; min-height: auto; }
+      .hero-title { font-size: clamp(2.2rem, 8vw, 3.5rem); }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Ambient -->
+  <div class="ambient ambient-1"></div>
+  <div class="ambient ambient-2"></div>
+  <div class="ambient ambient-3"></div>
+
+  <!-- Progress -->
+  <div class="progress-line" id="progressLine"></div>
+
+  <!-- NAV -->
+  <nav class="navbar navbar-expand-lg navbar-dark sticky-top nav-glass">
+    <div class="container py-2">
+      <a class="navbar-brand" href="#top">Mt. <span>Masapinit</span></a>
+      <button class="navbar-toggler border-0" style="opacity:.6" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto gap-lg-1 mt-3 mt-lg-0">
+          <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
+          <li class="nav-item"><a class="nav-link" href="#gallery">Gallery</a></li>
+          <li class="nav-item"><a class="nav-link" href="#trailmap">Map</a></li>
+          <li class="nav-item"><a class="nav-link" href="#safety">Safety</a></li>
+          <li class="nav-item"><a class="nav-link" href="#join">Join</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main id="top">
+    <!-- ══════════ HERO ══════════ -->
+    <section class="hero">
+      <div class="container">
+        <div class="row g-5 align-items-center">
+
+          <!-- Left copy -->
+          <div class="col-lg-5">
+            <div class="reveal">
+              <div class="hero-eyebrow">Toong · Tuy · Batangas</div>
+              <h1 class="hero-title">
+                Walk slow.<br>
+                Breathe deep.<br>
+                <em>Mt. Masapinit.</em>
+              </h1>
+              <p class="hero-subtitle">
+                For hikers who want peaceful trail, fresh air, and clean nature.
+                Plan safe with map, guide, and join form.
+              </p>
+            </div>
+
+            <div class="reveal delay-1 mt-4 d-flex flex-wrap gap-2">
+              <a class="btn btn-primary-soft" href="#trailmap">Open Trail Map</a>
+              <a class="btn btn-ghost" href="#join">Join the Group</a>
+            </div>
+
+            <div class="reveal delay-2 mt-4 d-flex flex-wrap gap-2">
+              <span class="tag">⏱ Day hike</span>
+              <span class="tag">💧 Bring water</span>
+              <span class="tag">☀ Start early</span>
+              <span class="tag">🌿 Leave no trace</span>
+              <span class="tag">🥾 Trail & hike</span>
+            </div>
+
+            <div class="reveal delay-3 mt-4 soft-box p-3">
+              <div class="muted" style="font-size:.82rem; line-height:1.7">
+                Stay on trail · No loud music · Respect locals & wildlife · Pack out all trash.
+              </div>
+            </div>
+          </div>
+
+          <!-- Right carousel -->
+          <div class="col-lg-7">
+            <div class="reveal delay-1">
+              <div class="cinema-wrap">
+                <div class="cinema-aspect" id="heroCarouselWrap">
+                  <div class="cinema-slide active" data-label="Sunrise vibes">
+                    <img alt="Mountain sunrise" src="https://scontent.fmnl17-8.fna.fbcdn.net/v/t39.30808-6/309701373_469073691942552_7319989872933244795_n.jpg?_nc_cat=104&ccb=1-7&_nc_sid=2a1932&_nc_eui2=AeH2ENrXTuYrhvBbSqUcCL-oJYq1UiVKjlQlirVSJUqOVNb2hJeFECEbxAiWfpbahBRz_3d3yBNNNtG0McPukWu3&_nc_ohc=mtRn99jh8xEQ7kNvwGDl4q-&_nc_oc=AdmN94jywnwOEXmHn9HdxJ0Fbz2lI0LYgmCCiILmsCsdgcTHcN8DZnHx_s_2L-RaeN8&_nc_zt=23&_nc_ht=scontent.fmnl17-8.fna&_nc_gid=xSaBwihmjP8LUcpeWcgLmg&_nc_ss=8&oh=00_AfuuiwVLb6t8q_D3RexFUnO8Onf300F7JWMALTHjI-bKPQ&oe=69A7974A" loading="eager">
+                  </div>
+                  <div class="cinema-slide" data-label="Forest trail">
+                    <img alt="Forest trail" src="https://scontent.fmnl17-3.fna.fbcdn.net/v/t39.30808-6/468877935_955224699994113_1698377219220088351_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=b895b5&_nc_eui2=AeHfCned-siBQTMeeHWYYyJao6BY2tzCSF2joFja3MJIXXO2DLbmoUyDXBj2Cy0Z_K9bhQeLbOVTiE7KyFHW_2VZ&_nc_ohc=pNLSPGQ_2fkQ7kNvwEjBS4B&_nc_oc=AdklBAKIMd3AqjmpWndnsY9NDsBQqx-styvF9Iux4keDzvggJUtQbFhv12G_Mi5Fnkw&_nc_zt=23&_nc_ht=scontent.fmnl17-3.fna&_nc_gid=kjx0S_a25eu50O0yiP3K_A&oh=00_AftCG_gYAWUYt5WvLRdGzVtwYnGkbBchWE3xLBvRpsMVIg&oe=69A786E3">
+                  </div>
+                  <div class="cinema-slide" data-label="Wide views">
+                    <img alt="Wide mountain view" src="https://scontent.fmnl17-6.fna.fbcdn.net/v/t1.6435-9/150959374_100370788789495_5573694995450036468_n.jpg?_nc_cat=109&ccb=1-7&_nc_sid=2a1932&_nc_eui2=AeEFZXcMj_cdP4Fc-ci65nhm9uo6WSyY-jn26jpZLJj6OUgxCfVzKgoe80gByvj6XzrDS7ked5OGLFnLoKhK9Gt4&_nc_ohc=pPbW7YEz0noQ7kNvwFC9VbB&_nc_oc=AdmdilerKZO1yrnFtG-rSZgAL8fDYV0RH77QLjlI_59oQ_qv5vIdOeElzCDtmaAPll0&_nc_zt=23&_nc_ht=scontent.fmnl17-6.fna&_nc_gid=qQxoNa83qKiZxEAy99k_hw&oh=00_AfsonzwgIGHkrBMuKIu2e_FLewNQKPNXJ6FdPHERq2qtOg&oe=69C95624">
+                  </div>
+
+                  <!-- Caption -->
+                  <div class="cinema-caption">
+                    <span class="tag" id="heroLabel">Sunrise vibes</span>
+                  </div>
+                  <!-- Dots -->
+                  <div class="cinema-dots" id="heroDots"></div>
+                  <!-- Nav -->
+                  <button class="cinema-nav prev" id="heroPrev">&#8592;</button>
+                  <button class="cinema-nav next" id="heroNext">&#8594;</button>
+                </div>
+              </div>
+
+              <!-- Stats row -->
+              <div class="row g-2 mt-3">
+                <div class="col-4">
+                  <div class="stat-box text-center">
+                    <div class="stat-val">14.0593</div>
+                    <div class="stat-label">Latitude</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="stat-box text-center">
+                    <div class="stat-val">~141 m</div>
+                    <div class="stat-label">Jump-off elev.</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="stat-box text-center">
+                    <div class="stat-val">~620 m</div>
+                    <div class="stat-label">Summit MASL</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ ABOUT ══════════ -->
+    <section id="about" class="section-pad">
+      <div class="container">
+        <div class="glass p-4 p-md-5 reveal">
+          <div class="row g-5 align-items-start">
+            <div class="col-lg-7">
+              <div class="section-label">The Mountain</div>
+              <h2 class="section-title mb-3">About Mt. Masapinit</h2>
+              <p class="muted mb-4" style="font-size:.9rem; line-height:1.9">
+                Mt. Masapinit is connected with Sitio Masapinit, Brgy. Toong, Tuy, Batangas.
+                This page is for hikers who want safe planning, simple UI, and nature respect.
+              </p>
+              <div class="soft-box p-4">
+                <div class="section-label mb-2">Quick details</div>
+                <ul class="list-clean">
+                  <li>Jump-off area: Brgy. Toong, Tuy, Batangas</li>
+                  <li>Coordinates reference: <span class="mono">14.0593, 120.7482</span></li>
+                  <li>Start early: avoid heat, better visibility</li>
+                  <li>Always follow barangay rules and local guide</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="col-lg-5">
+              <div class="soft-box p-4 h-100">
+                <div class="section-label mb-2">Community</div>
+                <ul class="list-clean">
+                  <li>Beginner-friendly hikes</li>
+                  <li>Trail cleanup and eco-walk</li>
+                  <li>Safety briefing and pacing</li>
+                  <li>Support local guides</li>
+                </ul>
+
+                <hr class="divider my-3">
+                <div class="muted" style="font-size:.8rem; line-height:1.7">
+                  Note: Brgy. Toong coordinate/elevation is public reference; summit MASL is community-based report. For exact MASL: confirm via GPX/GPS track.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ GALLERY ══════════ -->
+    <section id="gallery" class="section-pad">
+      <div class="container">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3 reveal">
+          <div>
+            <div class="section-label">Visual</div>
+            <h2 class="section-title">Gallery</h2>
+          </div>
+          <span class="muted" style="font-size:.8rem">Replace with real Mt. Masapinit photos · 1600×900</span>
+        </div>
+
+        <div class="glass p-3 p-md-4 reveal">
+          <div class="gallery-carousel">
+            <div class="gallery-aspect" id="galleryWrap">
+              <div class="g-slide active">
+                <img alt="Gallery 1" src="https://scontent.fmnl17-2.fna.fbcdn.net/v/t1.6435-9/154264023_100378045455436_2317752610343024322_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=7b2446&_nc_eui2=AeGgPE8R-ztbescE9Jekte4igXobDt0MsoaBehsO3Qyyhuysx2pdZEazQDAyOY5HF872tqOElK9eckvgcm5QctE4&_nc_ohc=32QVQ0o3o_oQ7kNvwGx0niN&_nc_oc=AdkzAG0C_XeWO1nsc0u-8XBbd9edZLPYs7HOmjp__94WTAq8oYvnQX4KM_ahwrqV2mw&_nc_zt=23&_nc_ht=scontent.fmnl17-2.fna&_nc_gid=ZHUDA9uuUE3FKdYsz5UKAg&_nc_ss=8&oh=00_AfuhN5RhjOTl1avktgRrD5WKEJrgXUVgO-OCZ08LXgaQVg&oe=69C937B4">
+              </div>
+              <div class="g-slide">
+                <img alt="Gallery 2" src="https://scontent.fmnl17-4.fna.fbcdn.net/v/t1.6435-9/151608458_100378302122077_4979571017759474180_n.jpg?_nc_cat=105&ccb=1-7&_nc_sid=7b2446&_nc_eui2=AeGHNhBOr47TuJSwzdx5RLdUpAhh_6Ja9t6kCGH_olr23g5sgOv6mURRWFvve7oBz_Jt9CcLvAqtXan6aatI61ht&_nc_ohc=jgEB2jY0-OUQ7kNvwH6Wm55&_nc_oc=AdkNPQ7bay-OYTwDqrlG9DbLTo3pJwwGIb61BHNgHKh7wC_1DtYjcZyPmmuK3GNramM&_nc_zt=23&_nc_ht=scontent.fmnl17-4.fna&_nc_gid=I3VLtdMUjQ4IQVcZyctzjw&oh=00_AfvwrxIhs0JveR8qZG6QowbWfYdA9vQ9m09yv5uXcGqXDQ&oe=69C95104">
+              </div>
+              <div class="g-slide">
+                <img alt="Gallery 3" src="https://scontent.fmnl17-8.fna.fbcdn.net/v/t39.30808-6/626148663_1283306677185912_8942830921713797181_n.jpg?_nc_cat=104&ccb=1-7&_nc_sid=7b2446&_nc_eui2=AeGMffFRVFOr6zYHU5R2P0INznGOCcxZdrHOcY4JzFl2sUPnZA6-qYfYbXfHv9QLkuo1p5qRU7JJdVsvWScF4GzQ&_nc_ohc=alrbjrYfHooQ7kNvwH0KZ70&_nc_oc=Adnb_20eDlgQrqHuDH7hCQz9ZAkMr2G22ritKXRFphEgOnWQujypzWt5rZdf1w0l-28&_nc_zt=23&_nc_ht=scontent.fmnl17-8.fna&_nc_gid=Y5rF-HGXZi9tgmTN3BxCgA&oh=00_AftL_VFCVL_vgeI2cz6WPjN9vQcx9l5HSr1PnBN178-lIA&oe=69A79741">
+              </div>
+              <div class="g-slide">
+                <img alt="Gallery 4" src="https://scontent.fmnl17-3.fna.fbcdn.net/v/t1.6435-9/181976187_130313639128543_7320085575754812256_n.jpg?_nc_cat=106&ccb=1-7&_nc_sid=7b2446&_nc_eui2=AeEzUvSJcgBPKE3wIiMNprdhGTGNQEfybVcZMY1AR_JtVyr1G38TyLLSSGmhyylpjOvf2l6oHvsdUFSwWBc-G73E&_nc_ohc=ebbDEdbJ6uUQ7kNvwGvlMUa&_nc_oc=AdlFyh6nIpY4_CMP2jUtRwzG2EsJYiX7OlJgoOc5H6CmR-UQ2zZFw4irUjnIAma4DnY&_nc_zt=23&_nc_ht=scontent.fmnl17-3.fna&_nc_gid=iQ6tJpYEOk27-DaB3-lMHQ&oh=00_AftZCeEEsWgeUf2kvZMfkiEUgUiATpn3-eqGwO2EUf7IXw&oe=69C95303">
+              </div>
+              <div class="gallery-overlay"></div>
+              <div class="gallery-controls" id="gDots"></div>
+              <button class="g-nav prev" id="gPrev">&#8592;</button>
+              <button class="g-nav next" id="gNext">&#8594;</button>
+            </div>
+          </div>
+
+          <div class="row g-2 mt-3">
+            <div class="col-6 col-md-3">
+              <div class="stat-box p-2 text-center"><div class="muted" style="font-size:.78rem; letter-spacing:.5px">Peaceful trail</div></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-box p-2 text-center"><div class="muted" style="font-size:.78rem; letter-spacing:.5px">Fresh air</div></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-box p-2 text-center"><div class="muted" style="font-size:.78rem; letter-spacing:.5px">Sunrise view</div></div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-box p-2 text-center"><div class="muted" style="font-size:.78rem; letter-spacing:.5px">Leave No Trace</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ MAP ══════════ -->
+    <section id="trailmap" class="section-pad">
+      <div class="container">
+        <div class="glass p-3 p-md-4 reveal">
+          <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+            <div>
+              <div class="section-label">Navigation</div>
+              <h2 class="section-title">Trail Map</h2>
+              <div class="muted" style="font-size:.82rem; margin-top:.3rem">Point-to-point guide line + distance calculator (estimate).</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-primary-soft" id="btnFit">Fit Route</button>
+              <button class="btn btn-ghost" id="btnToggleMarkers">Toggle Markers</button>
+            </div>
+          </div>
+
+          <div id="map"></div>
+
+          <div class="row g-3 mt-3">
+            <div class="col-lg-6">
+              <div class="soft-box p-4 h-100">
+                <div class="section-label mb-2">Route Summary</div>
+                <div class="muted" id="routeSummary" style="font-size:.88rem; line-height:1.9">Loading…</div>
+                <hr class="divider">
+                <div class="muted" style="font-size:.8rem">
+                  Estimate only. Real trail changes. Always follow local guide.
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="soft-box p-4 h-100">
+                <div class="section-label mb-2">Segments</div>
+                <ol class="muted list-num mb-0" id="segmentList" style="font-size:.88rem"></ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ SAFETY ══════════ -->
+    <section id="safety" class="section-pad">
+      <div class="container">
+        <div class="glass p-3 p-md-4 reveal">
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="section-label">Protocols</div>
+              <h2 class="section-title mb-3">Safety First</h2>
+              <div class="soft-box p-4">
+                <ul class="list-clean">
+                  <li>Check weather. Cancel if thunderstorm risk.</li>
+                  <li>Register at barangay/jump-off if required.</li>
+                  <li>Bring 1.5–2L water + food/snacks.</li>
+                  <li>Proper shoes, cap/hat, whistle, headlamp.</li>
+                  <li>Buddy system. No solo hike if beginner.</li>
+                  <li>Basic first aid + personal meds.</li>
+                  <li>Respect locals, no vandal, no loud music.</li>
+                  <li>Pack out trash. Leave No Trace.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="section-label">Steps</div>
+              <h2 class="section-title mb-3">Before the Hike</h2>
+              <div class="soft-box p-4">
+                <ol class="list-num">
+                  <li>Meet-up + attendance check</li>
+                  <li>Gear check + water check</li>
+                  <li>Short briefing + buddy pairing</li>
+                  <li>Warm up stretch (5–8 mins)</li>
+                  <li>Start hike early (best before 6:30 AM)</li>
+                  <li>Hydrate every 20–30 mins</li>
+                  <li>Summit rest + photo, then descend early</li>
+                </ol>
+              </div>
+              <div class="accent-box p-3 mt-3">
+                <div style="font-size:.78rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--accent); margin-bottom:.4rem">Emergency reminder</div>
+                <div class="muted" style="font-size:.85rem; line-height:1.7">
+                  If dizzy/cramps/weak: stop, shade, hydrate, assess. Safety first always.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <hr class="divider my-4">
+
+          <!-- WebSocket -->
+          <div class="row g-4">
+            <div class="col-lg-6">
+              <div class="section-label mb-2">Live Updates</div>
+              <h3 class="section-title-sm mb-1">Trail Updates (WebSocket demo)</h3>
+              <p class="muted mb-3" style="font-size:.82rem">Demo only using public echo server.</p>
+
+              <div class="d-flex gap-2 flex-wrap align-items-center">
+                <span class="tag">Status: <span id="wsStatus" class="fw-medium">disconnected</span></span>
+                <button class="btn btn-sm-soft" id="wsConnect">Connect</button>
+                <button class="btn btn-sm-soft" id="wsDisconnect">Disconnect</button>
+              </div>
+
+              <div class="mt-3">
+                <label class="form-label">Send update</label>
+                <div class="d-flex gap-2">
+                  <input id="wsMsg" class="form-control" placeholder="Trail open, weather ok.">
+                  <button class="btn btn-primary-soft" id="wsSend">Send</button>
+                </div>
+              </div>
+
+              <div class="soft-box p-3 mt-3">
+                <div class="section-label mb-2">Messages</div>
+                <div id="wsLog"></div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="section-label mb-2">Info</div>
+              <h3 class="section-title-sm mb-3">Mountain Info</h3>
+              <div class="soft-box p-4">
+                <div class="muted" style="font-size:.88rem; line-height:2">
+                  Brgy. Toong ref: coords <span class="mono">14.0593, 120.7482</span>, elevation ~141m.<br>
+                  Mt. Masapinit summit: ~620 masl (community reported).<br>
+                  Best: confirm exact MASL with GPX/GPS track from actual hike.
+                </div>
+              </div>
+              <div class="muted mt-2" style="font-size:.8rem">
+                GPX upload can be added to make route automatically accurate.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════ JOIN ══════════ -->
+    <section id="join" class="section-pad">
+      <div class="container">
+        <div class="glass p-3 p-md-5 reveal">
+          <div class="row g-5">
+            <div class="col-lg-5">
+              <div class="section-label">Community</div>
+              <h2 class="section-title mb-3">Join Us</h2>
+              <p class="muted mb-4" style="font-size:.9rem; line-height:1.9">
+                Want to hike with us? Send your request and we will reply with schedule + meet-up details.
+              </p>
+
+              <div class="soft-box p-4">
+                <div class="section-label mb-2">Requirements</div>
+                <ul class="list-clean">
+                  <li>Respect rules + no littering</li>
+                  <li>Fit enough for uphill walk</li>
+                  <li>Bring water + proper shoes</li>
+                  <li>Follow buddy system + guide</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="col-lg-7">
+              <form id="joinForm" class="needs-validation" novalidate>
+                <input type="hidden" name="access_key" value="YOUR_ACCESS_KEY_HERE">
+                <input type="hidden" name="subject" value="Mt. Masapinit - Join Request">
+                <input type="hidden" name="from_name" value="Mt. Masapinit Website">
+                <div class="hp-field">
+                  <label>Leave this empty</label>
+                  <input type="text" name="botcheck" tabindex="-1" autocomplete="off">
+                </div>
+
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Full name</label>
+                    <input class="form-control" name="name" required placeholder="Your name">
+                    <div class="invalid-feedback" style="font-size:.78rem">Please enter your name.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input class="form-control" name="email" type="email" required placeholder="you@email.com">
+                    <div class="invalid-feedback" style="font-size:.78rem">Please enter a valid email.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Contact number</label>
+                    <input class="form-control" name="phone" required placeholder="09xx…">
+                    <div class="invalid-feedback" style="font-size:.78rem">Please enter your contact number.</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Experience</label>
+                    <select class="form-select" name="experience" required>
+                      <option value="" selected disabled>Select level</option>
+                      <option>Beginner</option>
+                      <option>Intermediate</option>
+                      <option>Advanced</option>
+                    </select>
+                    <div class="invalid-feedback" style="font-size:.78rem">Please choose your experience.</div>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-control" rows="4" name="message" required
+                      placeholder="Preferred date/time + notes (optional)."></textarea>
+                    <div class="invalid-feedback" style="font-size:.78rem">Please write your message.</div>
+                  </div>
+                  <div class="col-12 d-flex flex-wrap gap-3 align-items-center mt-1">
+                    <button class="btn btn-primary-soft" type="submit" id="btnSubmit">Send Request</button>
+                    <span class="muted" id="formStatus" style="font-size:.85rem"></span>
+                  </div>
+                  <div class="col-12 muted" style="font-size:.78rem; letter-spacing:.3px">
+                    By sending, you agree we contact you for hike coordination only.
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <hr class="divider mt-4">
+          <div class="muted" style="font-size:.82rem">
+            More coming: FAQ, permit/fee section, and GPX route upload.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container d-flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div class="footer-brand">© <span id="year"></span> Mt. Masapinit Community · Toong, Tuy, Batangas</div>
+      <div class="muted" style="font-size:.78rem; letter-spacing:.5px">Bootstrap · Leaflet · Web3Forms</div>
+    </div>
+  </footer>
+
+  <!-- JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // ══ YEAR ══
+    document.getElementById("year").textContent = new Date().getFullYear();
+
+    // ══ PROGRESS BAR ══
+    window.addEventListener("scroll", () => {
+      const h = document.documentElement;
+      const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+      document.getElementById("progressLine").style.width = pct + "%";
+    });
+
+    // ══ REVEAL ══
+    const revealEls = document.querySelectorAll(".reveal");
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("show"); });
+    }, { threshold: 0.08 });
+    revealEls.forEach(el => io.observe(el));
+
+    // ══ ACTIVE NAV ══
+    const sections = ["about","gallery","trailmap","safety","join"].map(id => document.getElementById(id));
+    const navLinks = Array.from(document.querySelectorAll(".navbar .nav-link"));
+    const navIO = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          navLinks.forEach(a => a.classList.remove("active"));
+          const active = navLinks.find(a => a.getAttribute("href") === "#" + entry.target.id);
+          if (active) active.classList.add("active");
+        }
+      });
+    }, { rootMargin: "-30% 0px -60% 0px", threshold: 0.01 });
+    sections.forEach(s => s && navIO.observe(s));
+
+    // ══ CINEMA CAROUSEL (hero) ══
+    function buildCarousel({ wrapId, dotContId, prevId, nextId, labelId, interval }) {
+      const wrap = document.getElementById(wrapId);
+      const slides = Array.from(wrap.querySelectorAll(".cinema-slide"));
+      const dotCont = document.getElementById(dotContId);
+      const prevBtn = document.getElementById(prevId);
+      const nextBtn = document.getElementById(nextId);
+      const labelEl = labelId ? document.getElementById(labelId) : null;
+      let current = 0;
+      let timer;
+
+      // Build dots
+      slides.forEach((_, i) => {
+        const btn = document.createElement("button");
+        btn.className = "cinema-dot" + (i === 0 ? " active" : "");
+        btn.addEventListener("click", () => go(i));
+        dotCont.appendChild(btn);
+      });
+
+      function go(idx) {
+        slides[current].classList.remove("active");
+        dotCont.children[current].classList.remove("active");
+        current = (idx + slides.length) % slides.length;
+        slides[current].classList.add("active");
+        dotCont.children[current].classList.add("active");
+        if (labelEl) {
+          const lbl = slides[current].getAttribute("data-label");
+          labelEl.textContent = lbl || "";
+        }
+      }
+
+      function autoPlay() {
+        clearInterval(timer);
+        timer = setInterval(() => go(current + 1), interval || 4000);
+      }
+
+      prevBtn.addEventListener("click", () => { go(current - 1); autoPlay(); });
+      nextBtn.addEventListener("click", () => { go(current + 1); autoPlay(); });
+
+      autoPlay();
+    }
+
+    buildCarousel({
+      wrapId: "heroCarouselWrap",
+      dotContId: "heroDots",
+      prevId: "heroPrev",
+      nextId: "heroNext",
+      labelId: "heroLabel",
+      interval: 4500
+    });
+
+    // ══ GALLERY CAROUSEL ══
+    function buildGallery({ wrapId, dotContId, prevId, nextId, interval }) {
+      const wrap = document.getElementById(wrapId);
+      const slides = Array.from(wrap.querySelectorAll(".g-slide"));
+      const dotCont = document.getElementById(dotContId);
+      const prevBtn = document.getElementById(prevId);
+      const nextBtn = document.getElementById(nextId);
+      let current = 0;
+      let timer;
+
+      slides.forEach((_, i) => {
+        const btn = document.createElement("button");
+        btn.className = "g-dot" + (i === 0 ? " active" : "");
+        btn.addEventListener("click", () => go(i));
+        dotCont.appendChild(btn);
+      });
+
+      function go(idx) {
+        slides[current].classList.remove("active");
+        dotCont.children[current].classList.remove("active");
+        current = (idx + slides.length) % slides.length;
+        slides[current].classList.add("active");
+        dotCont.children[current].classList.add("active");
+      }
+
+      function autoPlay() {
+        clearInterval(timer);
+        timer = setInterval(() => go(current + 1), interval || 3800);
+      }
+
+      prevBtn.addEventListener("click", () => { go(current - 1); autoPlay(); });
+      nextBtn.addEventListener("click", () => { go(current + 1); autoPlay(); });
+
+      autoPlay();
+    }
+
+    buildGallery({
+      wrapId: "galleryWrap",
+      dotContId: "gDots",
+      prevId: "gPrev",
+      nextId: "gNext",
+      interval: 3800
+    });
+
+    // ══ LEAFLET MAP ══
+    const JUMPOFF = [14.0593, 120.7482];
+    const trailPoints = [
+      { name: "Jump-off (Brgy. Toong)", latlng: [14.0593, 120.7482] },
+      { name: "Trail Point 1",          latlng: [14.0622, 120.7520] },
+      { name: "Trail Point 2",          latlng: [14.0655, 120.7572] },
+      { name: "Viewpoint",              latlng: [14.0683, 120.7609] },
+      { name: "Summit (estimate)",      latlng: [14.0706, 120.7633] }
+    ];
+
+    const map = L.map("map", { zoomControl: true }).setView(JUMPOFF, 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markerGroup = L.layerGroup().addTo(map);
+    let markersVisible = true;
+
+    function renderMarkers() {
+      markerGroup.clearLayers();
+      trailPoints.forEach((p, idx) => {
+        const marker = L.marker(p.latlng, { title: p.name });
+        marker.bindPopup(`<b>${p.name}</b><br>${p.latlng[0].toFixed(5)}, ${p.latlng[1].toFixed(5)}`);
+        marker.addTo(markerGroup);
+        if (idx === 0) marker.openPopup();
+      });
+    }
+    renderMarkers();
+
+    const routeLatLngs = trailPoints.map(p => p.latlng);
+    const routeLine = L.polyline(routeLatLngs, {
+      color: "#9de3b4",
+      weight: 4,
+      opacity: 0.9,
+      dashArray: null
+    }).addTo(map);
+
+    function fitToRoute() {
+      map.fitBounds(routeLine.getBounds(), { padding: [24, 24] });
+    }
+    fitToRoute();
+
+    document.getElementById("btnFit").addEventListener("click", fitToRoute);
+    document.getElementById("btnToggleMarkers").addEventListener("click", () => {
+      markersVisible = !markersVisible;
+      if (markersVisible) markerGroup.addTo(map);
+      else map.removeLayer(markerGroup);
+    });
+
+    // ══ DISTANCE CALC ══
+    function toRad(x) { return x * Math.PI / 180; }
+    function haversineKm(a, b) {
+      const R = 6371;
+      const dLat = toRad(b[0] - a[0]);
+      const dLon = toRad(b[1] - a[1]);
+      const lat1 = toRad(a[0]);
+      const lat2 = toRad(b[0]);
+      const s1 = Math.sin(dLat / 2);
+      const s2 = Math.sin(dLon / 2);
+      const h = s1 * s1 + Math.cos(lat1) * Math.cos(lat2) * s2 * s2;
+      return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+
+    function calcRoute() {
+      let total = 0;
+      const segments = [];
+      for (let i = 0; i < trailPoints.length - 1; i++) {
+        const d = haversineKm(trailPoints[i].latlng, trailPoints[i + 1].latlng);
+        total += d;
+        segments.push({ from: trailPoints[i].name, to: trailPoints[i + 1].name, km: d });
+      }
+      document.getElementById("routeSummary").innerHTML = `
+        Segments: <span class="mono">${segments.length}</span><br>
+        Distance (one-way est.): <span class="mono">${total.toFixed(2)} km</span><br>
+        Pacing: <span class="mono">steady + hydrate</span>
+      `;
+      const list = document.getElementById("segmentList");
+      list.innerHTML = "";
+      segments.forEach(s => {
+        const li = document.createElement("li");
+        li.style.cssText = "padding:.5rem 0; border-bottom:1px solid rgba(255,255,255,.05); color:var(--muted); font-size:.85rem;";
+        li.textContent = `${s.from} → ${s.to}: ${s.km.toFixed(2)} km`;
+        list.appendChild(li);
+      });
+    }
+    calcRoute();
+
+    // ══ WEB3FORMS ══
+    const form = document.getElementById("joinForm");
+    const statusEl = document.getElementById("formStatus");
+    const btnSubmit = document.getElementById("btnSubmit");
+
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      if (!form.checkValidity()) {
+        form.classList.add("was-validated");
+        statusEl.textContent = "Please complete required fields.";
+        return;
+      }
+      const bot = form.querySelector('input[name="botcheck"]').value;
+      if (bot && bot.trim() !== "") { statusEl.textContent = "Spam detected."; return; }
+      const key = form.querySelector('input[name="access_key"]').value;
+      if (!key || key.includes("Y19d4628c-2422-40c3-b558-e1fac65805c7")) {
+        statusEl.textContent = "Missing Web3Forms access key.";
+        return;
+      }
+      btnSubmit.disabled = true;
+      statusEl.textContent = "Sending…";
+      try {
+        const res = await fetch("https://api.web3forms.com/submit", { method: "POST", body: new FormData(form) });
+        const data = await res.json();
+        if (data.success) {
+          statusEl.textContent = "Sent! We will message you soon. Ingat always 🙏";
+          form.reset();
+          form.classList.remove("was-validated");
+        } else {
+          statusEl.textContent = "Failed to send. Please try again later.";
+        }
+      } catch {
+        statusEl.textContent = "Network error. Please try again.";
+      } finally {
+        btnSubmit.disabled = false;
+      }
+    });
+
+    // ══ WEBSOCKET ══
+    let ws = null;
+    const wsStatus = document.getElementById("wsStatus");
+    const wsLog = document.getElementById("wsLog");
+
+    function logWs(msg) {
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement("div");
+      div.textContent = `[${time}] ${msg}`;
+      wsLog.appendChild(div);
+      wsLog.scrollTop = wsLog.scrollHeight;
+    }
+
+    function connectWs() {
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+      ws = new WebSocket("wss://echo.websocket.events");
+      wsStatus.textContent = "connecting";
+      logWs("Connecting…");
+      ws.onopen = () => { wsStatus.textContent = "connected"; logWs("Connected ✅"); };
+      ws.onmessage = evt => logWs("Echo: " + evt.data);
+      ws.onclose = () => { wsStatus.textContent = "disconnected"; logWs("Disconnected."); };
+      ws.onerror = () => { wsStatus.textContent = "error"; logWs("WebSocket error."); };
+    }
+
+    document.getElementById("wsConnect").addEventListener("click", connectWs);
+    document.getElementById("wsDisconnect").addEventListener("click", () => { if (ws) ws.close(); });
+    document.getElementById("wsSend").addEventListener("click", () => {
+      const input = document.getElementById("wsMsg");
+      const msg = (input.value || "").trim();
+      if (!msg) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) { logWs("Not connected. Click Connect first."); return; }
+      ws.send(msg);
+      logWs("You: " + msg);
+      input.value = "";
+    });
+  </script>
+</body>
+</html>
